@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confesionario de Costura Digital</title>
+    <!-- Carga de Tailwind CSS para un diseño moderno y responsive -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Estilos personalizados para la estética profesional y la voz */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f6f8;
+        }
+        .card {
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 5px 15px -5px rgba(0, 0, 0, 0.04);
+        }
+        .voice-button {
+            transition: all 0.2s ease-in-out;
+        }
+        .voice-active {
+            animation: pulse-red 1s infinite;
+            background-color: #ef4444 !important; /* bg-red-500 */
+        }
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 1.5rem;
+            height: 1.5rem;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8 min-h-screen">
+
+    <div id="app-container" class="max-w-4xl mx-auto">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-extrabold text-gray-800">Confesionario de Costura Digital</h1>
+            <p class="text-xl text-gray-500 mt-2">Cálculo de costos y productividad asistido por voz y IA</p>
+            <p id="user-id-display" class="text-sm text-gray-400 mt-4"></p>
+        </header>
+
+        <!-- Sección de Cálculo y Control de Voz -->
+        <section class="card bg-white p-6 sm:p-8 rounded-xl mb-10">
+            <h2 class="text-2xl font-semibold mb-6 text-gray-700">Calculadora de Pieza</h2>
+
+            <!-- Input 0: Descripción de la Tarea (Nuevo) -->
+            <div class="mb-6">
+                <label for="taskDescription" class="block text-sm font-medium text-gray-700 mb-2">0. Describe la Pieza (Ej: Cierre de casaca, Bolsillo de buzo)</label>
+                <input type="text" id="taskDescription" value=""
+                       placeholder="Describe la tarea de costura..."
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 transition duration-150">
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 items-end">
+                <!-- Input 1: Valor Base -->
+                <div>
+                    <label for="valorBase" class="block text-sm font-medium text-gray-700 mb-2">1. Valor Base (Ej: 300)</label>
+                    <input type="number" id="valorBase" value="0" min="0" step="0.01"
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                           oninput="handleInput()">
+                </div>
+
+                <!-- Input 2: Factor de Costo -->
+                <div>
+                    <label for="factorCosto" class="block text-sm font-medium text-gray-700 mb-2">2. Factor de Costo (Ej: 0.16)</label>
+                    <input type="number" id="factorCosto" value="0" min="0" step="0.01"
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                           oninput="handleInput()">
+                </div>
+
+                <!-- Botón de Voz -->
+                <div class="flex flex-col">
+                    <button id="voiceBtn"
+                            class="voice-button w-full p-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 flex items-center justify-center disabled:opacity-50"
+                            onclick="toggleVoiceRecognition()" disabled>
+                        <svg id="mic-icon" class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7v0a7 7 0 01-7-7v0M12 18v3m4-3h-8"></path></svg>
+                        <span id="voice-text">Habilitar Voz (Inicie la app)</span>
+                    </button>
+                    <p id="voice-status" class="text-center text-sm mt-2 text-gray-500">Estado: Inactivo</p>
+                </div>
+            </div>
+
+            <!-- Asistente Gemini para Factor -->
+            <div class="mb-6 flex flex-col sm:flex-row gap-4">
+                <button id="suggestFactorBtn"
+                        class="w-full sm:w-1/2 p-3 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-700 transition duration-150 flex items-center justify-center disabled:opacity-50"
+                        onclick="suggestFactor()">
+                    <span id="suggestFactorText">✨ Sugerir Factor (IA)</span>
+                    <div id="suggestFactorSpinner" class="hidden loading-spinner ml-2"></div>
+                </button>
+                <div id="factorSuggestion" class="w-full sm:w-1/2 p-3 bg-purple-50 text-purple-800 rounded-lg border border-purple-200 text-sm font-medium">
+                    Sugerencia: Describe la tarea y usa el botón ✨.
+                </div>
+            </div>
+
+            <!-- Resultado y Guardado -->
+            <div class="flex flex-col sm:flex-row items-center justify-between bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <div class="text-left mb-4 sm:mb-0">
+                    <p class="text-lg font-medium text-blue-700">Resultado de la Operación (Valor * Factor):</p>
+                    <p id="resultado" class="text-3xl font-extrabold text-blue-900 mt-1">$0.00</p>
+                </div>
+                <button id="saveBtn"
+                        class="px-6 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition duration-150 disabled:opacity-50"
+                        onclick="saveCalculation()" disabled>
+                    Guardar Cálculo
+                </button>
+            </div>
+            
+            <p id="error-message" class="text-red-500 mt-3 hidden text-center"></p>
+
+        </section>
+
+        <!-- Sección de Historial -->
+        <section class="card bg-white p-6 sm:p-8 rounded-xl">
+            <h2 class="text-2xl font-semibold mb-6 text-gray-700">Historial de Tareas y Costos</h2>
+            <div id="calculations-list" class="space-y-4">
+                <p class="text-gray-500" id="loading-msg">Cargando historial...</p>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Script de Firebase, Gemini API y Lógica de la Aplicación -->
+    <script type="module">
+        // Importaciones de Firebase (necesarias para la persistencia de datos y autenticación)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, addDoc, onSnapshot, collection, query, serverTimestamp, setLogLevel, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // =========================================================
+        // 1. CONFIGURACIÓN E INICIALIZACIÓN DE FIREBASE
+        // =========================================================
+
+        // Variables globales proporcionadas por el entorno (¡NO TOCAR!)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let app;
+        let db;
+        let auth;
+        let userId = null;
+        let isAuthReady = false;
+
+        // Elementos del DOM
+        const $taskDescription = document.getElementById('taskDescription'); // Nuevo campo
+        const $valorBase = document.getElementById('valorBase');
+        const $factorCosto = document.getElementById('factorCosto');
+        const $resultado = document.getElementById('resultado');
+        const $voiceBtn = document.getElementById('voiceBtn');
+        const $voiceText = document.getElementById('voice-text');
+        const $voiceStatus = document.getElementById('voice-status');
+        const $saveBtn = document.getElementById('saveBtn');
+        const $calculationsList = document.getElementById('calculations-list');
+        const $userIdDisplay = document.getElementById('user-id-display');
+        const $errorMessage = document.getElementById('error-message');
+        const $suggestFactorBtn = document.getElementById('suggestFactorBtn'); // Nuevo botón
+        const $suggestFactorText = document.getElementById('suggestFactorText');
+        const $suggestFactorSpinner = document.getElementById('suggestFactorSpinner');
+        const $factorSuggestion = document.getElementById('factorSuggestion'); // Nuevo display
+
+        let recognition = null;
+        let isListening = false;
+        let nextInputTarget = 'valorBase'; // 'valorBase' o 'factorCosto'
+        const VOICE_DELAY_MS = 2000; // Espera para la siguiente entrada de voz
+
+        /**
+         * Inicializa Firebase, autentica al usuario y habilita la app.
+         */
+        async function initFirebase() {
+            if (!Object.keys(firebaseConfig).length) {
+                console.error("Firebase config is missing. Cannot initialize Firestore.");
+                $voiceBtn.textContent = 'ERROR: Falta Configuración';
+                $voiceBtn.disabled = true;
+                return;
+            }
+            
+            try {
+                // Habilitar logs para depuración (opcional)
+                setLogLevel('Debug');
+                
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Autenticación: Usar token de seguridad o iniciar sesión anónimamente
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        isAuthReady = true;
+                        console.log("Firebase Auth Ready. User ID:", userId);
+                        $userIdDisplay.textContent = `ID de Usuario (para compartir): ${userId}`;
+                        $voiceBtn.textContent = 'Iniciar Voz (Click para Hablar)';
+                        $voiceBtn.disabled = false;
+                        $saveBtn.disabled = false;
+                        $suggestFactorBtn.disabled = false;
+                        
+                        // Una vez autenticado, cargar los datos
+                        loadCalculations();
+                    } else {
+                        // Esto solo debería ocurrir si el inicio de sesión inicial falla
+                        console.log("User signed out or failed to sign in.");
+                    }
+                });
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+            } catch (error) {
+                console.error("Error al inicializar Firebase o autenticar:", error);
+                $voiceBtn.textContent = 'ERROR de Inicialización';
+                $voiceBtn.disabled = true;
+                showError("Error grave al inicializar la aplicación. Ver consola.");
+            }
+        }
+
+        // =========================================================
+        // 2. LÓGICA DE CÁLCULO
+        // =========================================================
+
+        /**
+         * Realiza la multiplicación de los inputs y actualiza el display.
+         */
+        function handleInput() {
+            const valorBase = parseFloat($valorBase.value) || 0;
+            const factorCosto = parseFloat($factorCosto.value) || 0;
+            const result = valorBase * factorCosto;
+
+            $resultado.textContent = `$${result.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`; // Formato de moneda
+        }
+
+        /**
+         * Muestra un mensaje de error temporal en la UI.
+         * @param {string} msg - El mensaje de error.
+         */
+        function showError(msg) {
+            $errorMessage.textContent = msg;
+            $errorMessage.classList.remove('hidden');
+            setTimeout(() => {
+                $errorMessage.classList.add('hidden');
+            }, 5000);
+        }
+
+        // =========================================================
+        // 3. RECONOCIMIENTO DE VOZ (WEB SPEECH API)
+        // =========================================================
+
+        /**
+         * Inicializa la API de reconocimiento de voz.
+         */
+        function initVoiceRecognition() {
+            if (!('webkitSpeechRecognition' in window)) {
+                $voiceBtn.textContent = 'Voz No Soportada';
+                $voiceBtn.disabled = true;
+                return;
+            }
+
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = false; // Queremos una única captura
+            recognition.interimResults = false;
+            recognition.lang = 'es-ES'; // Configurado para español
+
+            recognition.onstart = () => {
+                isListening = true;
+                $voiceBtn.classList.add('voice-active');
+                $voiceText.textContent = `Habla el ${nextInputTarget === 'valorBase' ? 'Valor Base' : 'Factor de Costo'}...`;
+                $voiceStatus.textContent = 'Estado: ESCUCHANDO...';
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                console.log("Voz reconocida:", transcript);
+
+                // Intenta parsear el número de la transcripción
+                // Reemplaza comas por puntos si el usuario habla un número decimal con coma
+                const normalizedTranscript = transcript.toLowerCase().replace(/,/g, '.');
+                // Expresión regular mejorada para capturar números con o sin decimales
+                const numberMatch = normalizedTranscript.match(/(\d+[\.\,]?\d*)/); 
+                
+                if (numberMatch) {
+                    const number = parseFloat(numberMatch[0].replace(',', '.')); // Asegurar punto decimal
+                    
+                    if (nextInputTarget === 'valorBase') {
+                        $valorBase.value = number;
+                        $voiceStatus.textContent = `Base: ${number}. Ahora di el Factor.`;
+                        nextInputTarget = 'factorCosto';
+                        handleInput();
+                        // Reiniciar la escucha para el siguiente número
+                        setTimeout(() => recognition.start(), 500);
+                        return;
+
+                    } else if (nextInputTarget === 'factorCosto') {
+                        $factorCosto.value = number;
+                        $voiceStatus.textContent = `Factor: ${number}. Cálculo completado.`;
+                        nextInputTarget = 'valorBase'; // Reset para la siguiente pieza
+                        handleInput();
+                        // Una vez que se obtienen ambos números, guarda la entrada
+                        saveCalculation();
+                    }
+                } else {
+                    $voiceStatus.textContent = 'No se reconoció un número. Intenta de nuevo.';
+                    // Reiniciar la escucha para el mismo campo
+                    setTimeout(() => recognition.start(), 500);
+                }
+            };
+
+            recognition.onend = () => {
+                // Solo si la secuencia terminó (o falló en el medio) y no estamos esperando el segundo valor
+                if (nextInputTarget === 'valorBase') { 
+                    resetVoiceUI();
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Error de reconocimiento de voz:", event.error);
+                showError(`Error de voz: ${event.error}. Intenta de nuevo.`);
+                resetVoiceUI();
+            };
+        }
+
+        /**
+         * Alterna el estado de la escucha de voz.
+         */
+        window.toggleVoiceRecognition = function() {
+            if (!recognition) return;
+            
+            if (isListening) {
+                recognition.stop();
+                resetVoiceUI();
+            } else {
+                nextInputTarget = 'valorBase'; // Siempre comienza con el valor base
+                $voiceBtn.classList.add('voice-active');
+                recognition.start();
+                isListening = true;
+            }
+        }
+
+        /**
+         * Restablece la interfaz de usuario de voz al estado inactivo.
+         */
+        function resetVoiceUI() {
+            isListening = false;
+            $voiceBtn.classList.remove('voice-active');
+            $voiceText.textContent = 'Iniciar Voz (Click para Hablar)';
+            $voiceStatus.textContent = 'Estado: Inactivo';
+        }
+
+        // =========================================================
+        // 4. INTEGRACIÓN GEMINI (ASISTENTE DE PRODUCTIVIDAD)
+        // =========================================================
+
+        const API_KEY = ""; // La clave se proporcionará en tiempo de ejecución por el Canvas
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`;
+
+        /**
+         * Llama a la API de Gemini con lógica de reintento.
+         * @param {object} payload - Cuerpo de la solicitud de la API.
+         * @returns {Promise<object>} El resultado de la API parseado.
+         */
+        async function callGeminiApi(payload) {
+            let attempt = 0;
+            const maxAttempts = 5;
+
+            while (attempt < maxAttempts) {
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.status === 429) { // Demasiadas solicitudes (Retry-After)
+                        const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        attempt++;
+                        continue;
+                    }
+
+                    if (!response.ok) {
+                        const errorBody = await response.json();
+                        throw new Error(`API Error ${response.status}: ${JSON.stringify(errorBody)}`);
+                    }
+
+                    return response.json();
+
+                } catch (error) {
+                    attempt++;
+                    if (attempt >= maxAttempts) {
+                        throw error;
+                    }
+                    const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+
+        /**
+         * Usa Gemini para sugerir un Factor de Costo basado en la descripción de la tarea.
+         */
+        window.suggestFactor = async function() {
+            const description = $taskDescription.value.trim();
+            const baseValue = parseFloat($valorBase.value);
+            
+            if (!description) {
+                showError("Por favor, describe la pieza (Ej: Cierre de casaca) antes de pedir una sugerencia.");
+                return;
+            }
+            if (baseValue <= 0) {
+                 showError("El Valor Base debe ser mayor a cero para que el asistente pueda estimar la dificultad.");
+                return;
+            }
+
+            // Habilitar estado de carga
+            $suggestFactorBtn.disabled = true;
+            $suggestFactorText.classList.add('hidden');
+            $suggestFactorSpinner.classList.remove('hidden');
+            $factorSuggestion.textContent = 'Analizando complejidad de la costura...';
+
+            const systemPrompt = "Eres un analista de productividad de costura experto. Analiza la descripción de la pieza de ropa y la base salarial para estimar un factor de costo (un número decimal entre 0.05 y 0.50) que refleje la complejidad, el tiempo y la habilidad requeridos para la tarea. Devuelve SOLO el objeto JSON solicitado.";
+            const userQuery = `Analiza la siguiente tarea de costura: "${description}". Base Salarial: ${baseValue}. Sugiere el Factor de Costo.`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                // Pedir respuesta estructurada en JSON
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            "suggestedFactor": { "type": "NUMBER", "description": "El factor de costo sugerido (decimal entre 0.05 y 0.50)." },
+                            "reasoning": { "type": "STRING", "description": "Una breve justificación de la sugerencia." }
+                        },
+                        propertyOrdering: ["suggestedFactor", "reasoning"]
+                    }
+                }
+            };
+
+            try {
+                const result = await callGeminiApi(payload);
+                const jsonText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (jsonText) {
+                    const data = JSON.parse(jsonText);
+                    const suggestedFactor = data.suggestedFactor;
+                    const reasoning = data.reasoning;
+
+                    if (typeof suggestedFactor === 'number') {
+                        // Aplicar el factor sugerido
+                        $factorCosto.value = suggestedFactor.toFixed(2);
+                        handleInput();
+
+                        $factorSuggestion.innerHTML = `Factor Sugerido: <span class="text-purple-900 font-bold">${suggestedFactor.toFixed(2)}</span>.`;
+                        $factorSuggestion.innerHTML += `<p class="mt-1 text-xs text-purple-600">${reasoning}</p>`;
+                        
+                        $voiceStatus.textContent = 'Factor actualizado con la sugerencia de la IA.';
+                    } else {
+                         throw new Error("La IA no devolvió un factor numérico válido.");
+                    }
+                } else {
+                    throw new Error("Respuesta vacía de la API de Gemini.");
+                }
+
+            } catch (e) {
+                console.error("Error al usar el asistente Gemini:", e);
+                $factorSuggestion.textContent = `Error: No se pudo obtener la sugerencia. ${e.message}`;
+                showError("Error al contactar al Asistente de Productividad. Ver consola.");
+            } finally {
+                // Deshabilitar estado de carga
+                $suggestFactorBtn.disabled = false;
+                $suggestFactorText.classList.remove('hidden');
+                $suggestFactorSpinner.classList.add('hidden');
+            }
+        }
+
+
+        // =========================================================
+        // 5. PERSISTENCIA DE DATOS (FIRESTORE)
+        // =========================================================
+
+        /**
+         * Obtiene la ruta de la colección privada para este usuario.
+         */
+        function getCollectionRef() {
+            // Ruta: /artifacts/{appId}/users/{userId}/sewing_costs
+            if (!db || !userId) {
+                console.error("Firestore o userId no están disponibles.");
+                return null;
+            }
+            return collection(db, 'artifacts', appId, 'users', userId, 'sewing_costs');
+        }
+
+        /**
+         * Guarda el cálculo actual en Firestore.
+         */
+        window.saveCalculation = async function() {
+            const collectionRef = getCollectionRef();
+            if (!collectionRef) return;
+            
+            const taskDescription = $taskDescription.value.trim(); // Nuevo campo
+            const valorBase = parseFloat($valorBase.value);
+            const factorCosto = parseFloat($factorCosto.value);
+            const resultado = valorBase * factorCosto;
+
+            if (valorBase <= 0 || factorCosto <= 0) {
+                showError("Por favor, ingresa un Valor Base y un Factor de Costo mayores a cero para guardar.");
+                return;
+            }
+            if (!taskDescription) {
+                 showError("Por favor, describe la tarea de costura antes de guardar el cálculo.");
+                return;
+            }
+
+
+            try {
+                await addDoc(collectionRef, {
+                    taskDescription: taskDescription, // Guardar la descripción
+                    valorBase: valorBase,
+                    factorCosto: factorCosto,
+                    resultado: resultado,
+                    timestamp: serverTimestamp() // Marca de tiempo del servidor
+                });
+                $voiceStatus.textContent = 'Cálculo Guardado con Éxito.';
+                
+                // Opcional: limpiar los inputs después de guardar
+                $taskDescription.value = ''; // Limpiar descripción
+                $valorBase.value = 0;
+                $factorCosto.value = 0;
+                handleInput();
+            } catch (e) {
+                console.error("Error al guardar el documento: ", e);
+                showError("Error al guardar el cálculo. Revisa tu conexión.");
+            }
+        }
+
+        /**
+         * Carga los cálculos del historial en tiempo real usando onSnapshot.
+         */
+        function loadCalculations() {
+            const collectionRef = getCollectionRef();
+            if (!collectionRef) {
+                $calculationsList.innerHTML = '<p class="text-red-500">No se pudo cargar el historial (Error de autenticación).</p>';
+                return;
+            }
+
+            const q = query(collectionRef);
+
+            // Escuchador en tiempo real
+            onSnapshot(q, (snapshot) => {
+                const calculations = [];
+                snapshot.forEach((doc) => {
+                    calculations.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Ordenar por fecha, el más reciente primero 
+                calculations.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+
+                renderCalculations(calculations);
+            }, (error) => {
+                console.error("Error al escuchar cambios en Firestore: ", error);
+                $calculationsList.innerHTML = '<p class="text-red-500">Error al cargar datos en tiempo real.</p>';
+            });
+        }
+
+        /**
+         * Renderiza la lista de cálculos guardados.
+         * @param {Array} calculations - Lista de objetos de cálculo.
+         */
+        function renderCalculations(calculations) {
+            if (calculations.length === 0) {
+                $calculationsList.innerHTML = '<p class="text-gray-500">Aún no hay cálculos guardados. ¡Empieza a registrar tus tareas!</p>';
+                return;
+            }
+
+            $calculationsList.innerHTML = '';
+            
+            calculations.forEach(calc => {
+                const date = calc.timestamp ? new Date(calc.timestamp.seconds * 1000).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : 'Fecha desconocida';
+                const formattedResult = `$${calc.resultado.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+                const description = calc.taskDescription || 'Sin descripción';
+                
+                const item = document.createElement('div');
+                item.className = 'flex justify-between items-center p-4 bg-gray-50 rounded-lg border border-gray-200';
+                item.innerHTML = `
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full">
+                        <div class="mb-2 sm:mb-0">
+                             <p class="text-sm font-semibold text-purple-700">${description}</p>
+                            <p class="text-base font-bold text-gray-800">Costo: ${formattedResult}</p>
+                            <p class="text-sm text-gray-600">
+                                Base: ${calc.valorBase.toFixed(2)} × Factor: ${calc.factorCosto.toFixed(2)}
+                            </p>
+                            <p class="text-xs text-gray-400 mt-1">${date}</p>
+                        </div>
+                         <button class="flex-shrink-0 text-red-400 hover:text-red-600 transition duration-150 p-2 rounded-full hover:bg-red-100 mt-2 sm:mt-0" 
+                                onclick="deleteCalculation('${calc.id}')" title="Eliminar este cálculo">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                `;
+                $calculationsList.appendChild(item);
+            });
+        }
+        
+        /**
+         * Elimina un cálculo por su ID.
+         * @param {string} id - ID del documento de Firestore.
+         */
+        window.deleteCalculation = async function(id) {
+            const collectionRef = getCollectionRef();
+            if (!collectionRef) return;
+            
+            const docRef = doc(collectionRef, id);
+            try {
+                await deleteDoc(docRef);
+                $voiceStatus.textContent = 'Cálculo eliminado del historial.';
+            } catch (e) {
+                console.error("Error al eliminar el documento: ", e);
+                showError("Error al eliminar el cálculo.");
+            }
+        }
+
+        // =========================================================
+        // 6. INICIO DE LA APLICACIÓN
+        // =========================================================
+        
+        window.onload = function() {
+            initFirebase();
+            initVoiceRecognition();
+            handleInput(); // Cálculo inicial en 0
+        };
+
+    </script>
+</body>
+</html>
